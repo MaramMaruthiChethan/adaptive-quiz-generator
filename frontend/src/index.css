@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: hsl(222 47% 11%);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(79, 70, 229, 0.18), transparent 32%),
+    linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
+}
+
+body {
+  @apply min-h-screen bg-background bg-mesh text-foreground antialiased;
+}
+
+#root {
+  @apply min-h-screen;
+}
