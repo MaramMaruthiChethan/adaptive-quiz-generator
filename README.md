@@ -2,6 +2,68 @@
 
 Adaptive Quiz & Question Generator is a full-stack local-first project that ingests educational content, processes it with NLP, generates quizzes automatically, adapts question difficulty based on learner performance, and exposes analytics through an admin dashboard.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Client
+      Browser["React + Vite UI"]
+    end
+
+    subgraph Backend
+      API["Flask API"]
+      Auth["JWT Auth"]
+      NLP["NLP Engine (spaCy / Transformers)"]
+      QGen["Question Generator"]
+      Adaptive["Adaptive Engine"]
+    end
+
+    subgraph Data
+      DB[(PostgreSQL)]
+    end
+
+    subgraph Storage
+      Uploads["PDF/Text Input"]
+    end
+
+    Browser <-->|Axios| API
+    API --> Auth
+    API --> NLP
+    NLP --> QGen
+    API --> Adaptive
+    API --> DB
+    API --> Uploads
+    QGen --> DB
+    Adaptive --> DB
+```
+
+## User Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend (React)
+    participant BE as Backend (Flask)
+    participant NLP as NLP/QGen
+    participant DB as PostgreSQL
+
+    U->>FE: Upload PDF / Text / URL
+    FE->>BE: POST /content/...
+    BE->>NLP: Clean + chunk text
+    NLP->>NLP: Generate questions
+    NLP-->>BE: Questions + metadata
+    BE->>DB: Store content + questions
+    U->>FE: Start Quiz (select question count)
+    FE->>BE: GET /quiz/start
+    BE->>DB: Fetch questions
+    BE-->>FE: First question
+    U->>FE: Submit answers
+    FE->>BE: POST /quiz/answer
+    BE->>BE: Adaptive logic update
+    BE-->>FE: Next question / results
+    FE-->>U: Results & analytics
+```
+
 ## Stack
 
 - Frontend: React, Vite, TailwindCSS, shadcn-style UI primitives, React Router, Axios, Framer Motion, Recharts
@@ -60,6 +122,83 @@ adaptive-quiz-generator/
 - `GET /admin/analytics`
 
 All responses are JSON.
+
+## Prerequisites
+
+- Node.js 20+
+- Python 3.11 (for local dev; Docker images include runtime)
+- PostgreSQL 14+ running locally (or via Docker)
+- Git, npm, pip
+
+## Environment Variables
+
+Create `.env` at repo root (or export in shell). Common keys:
+
+```env
+SECRET_KEY=change-me-in-production
+JWT_SECRET_KEY=change-me-jwt-secret
+DATABASE_URL=postgresql://quiz_user:quiz_password@localhost:5432/adaptive_quiz
+CORS_ORIGINS=http://localhost:5173
+ADMIN_EMAILS=admin@example.com
+OPENAI_API_KEY=           # optional
+OPENAI_MODEL=gpt-4o-mini  # optional
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+## Quick Start (Manual)
+
+```bash
+# Backend
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+```bash
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. Backend default is `http://localhost:5000`.
+
+## Quick Start (Docker Compose)
+
+```bash
+cd docker
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+- Postgres: `localhost:5432` (credentials from `docker-compose.yml`)
+
+## Running Tests / Smoke Checks
+
+Lightweight backend smoke (does not download large models):
+
+```bash
+cd backend
+python - <<'PY'
+from ai_engine.text_processor import TextProcessor
+from ai_engine.question_generator import QuestionGenerator
+sample = "Divide and conquer splits a problem, solves parts, then combines."
+processed = TextProcessor().process(sample)
+questions = QuestionGenerator().generate(processed["chunks"])
+assert processed["chunks"] and questions
+print("smoke ok")
+PY
+```
+
+Frontend type/build check:
+
+```bash
+cd frontend
+npm run build
+```
 
 ## Local Setup In VS Code
 
@@ -144,9 +283,28 @@ This project includes GitHub Actions workflows in `.github/workflows/`.
 - Password hashing with bcrypt
 - CORS restrictions configurable through environment variables
 
+## Troubleshooting
+
+- **Port 5000 already in use**: set `FLASK_RUN_PORT=5001` and update `VITE_API_BASE_URL=http://localhost:5001`.
+- **Postgres role not found**: create the role from `DATABASE_URL`, or change `DATABASE_URL` to use your current OS user.
+- **PDF contains images only**: pdfminer can’t read scanned PDFs—use text mode or a searchable PDF.
+- **Model downloads too heavy**: set `LIGHTWEIGHT_MODE=1` (disables spaCy model + transformer pipeline; heuristic generation still works).
+
 ## Recommended Improvements
 
 - Add Alembic migrations
 - Add background jobs for heavy ingestion workloads
 - Add persistent object storage for uploaded PDFs
 - Replace heuristic generation with tuned model prompts or a fine-tuned generator
+- Add end-to-end tests and contract tests for the quiz/adaptive flow
+- Publish a small demo dataset and seed script
+
+## Contributing
+
+1. Fork + branch from `main`.
+2. Run `npm run build` (frontend) and backend smoke before PRs.
+3. Ensure CI passes; add tests for logic changes.
+
+## License
+
+MIT (add your preferred license if different).
