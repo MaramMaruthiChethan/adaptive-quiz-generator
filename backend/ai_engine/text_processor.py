@@ -44,8 +44,35 @@ class TextProcessor:
             return None
 
     def clean_text(self, text):
-        text = re.sub(r"\s+", " ", text or "")
-        text = re.sub(r"[^\w\s.,;:!?()-]", "", text)
+        if not text:
+            return ""
+
+        def keep_line(line: str) -> bool:
+            stripped = line.strip()
+            if not stripped:
+                return False
+            lower = stripped.lower()
+            # Drop page numbers and chapter headers like "Page 12"
+            if re.match(r"^page\s*\d+$", lower):
+                return False
+            # Drop lines that are mostly digits or codes
+            letters = sum(c.isalpha() for c in stripped)
+            digits = sum(c.isdigit() for c in stripped)
+            if digits > letters:
+                return False
+            # Drop very short boilerplate lines
+            if len(stripped.split()) < 4 and digits > 0:
+                return False
+            # Drop obvious code-ish lines
+            if re.search(r"[{};<>]|class\\s+|import\\s+|public\\s+|void\\s+|def\\s+", stripped):
+                return False
+            return True
+
+        # Filter line by line to strip page numbers, codes, and boilerplate
+        filtered_lines = [ln for ln in (text or "").splitlines() if keep_line(ln)]
+        text = " ".join(filtered_lines)
+        text = re.sub(r"\\s+", " ", text)
+        text = re.sub(r"[^\\w\\s.,;:!?()-]", "", text)
         return text.strip()
 
     def segment_sentences(self, text):
@@ -96,6 +123,11 @@ class TextProcessor:
         for index in range(0, len(sentences), chunk_size):
             part = sentences[index : index + chunk_size]
             chunk_text = " ".join(part)
+            # Skip tiny or noisy chunks
+            words = chunk_text.split()
+            letters = sum(c.isalpha() for c in chunk_text)
+            if len(words) < 6 or letters < len(chunk_text) * 0.6:
+                continue
             chunks.append(
                 {
                     "chunk_index": len(chunks),

@@ -46,8 +46,8 @@ class QuestionGenerator:
 
     def _heuristic_questions(self, chunk):
         text = chunk["text"]
-        keywords = chunk.get("keywords", [])
-        concepts = chunk.get("concepts", [])
+        keywords = [k for k in (chunk.get("keywords") or []) if k and not any(ch.isdigit() for ch in k)]
+        concepts = [c for c in (chunk.get("concepts") or []) if c and not any(ch.isdigit() for ch in c)]
         anchor = (concepts or keywords or ["the main topic"])[0].title()
         keyword_answer = (keywords[0] if keywords else anchor).title()
         blank_source = text.split(".")[0].strip()
@@ -111,6 +111,8 @@ class QuestionGenerator:
     def generate(self, chunks):
         generated = []
         for chunk in chunks:
+            if not chunk.get("keywords") and not chunk.get("concepts"):
+                continue
             questions = self._heuristic_questions(chunk)
             for question in questions:
                 question["chunk_index"] = chunk["chunk_index"]
