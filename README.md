@@ -307,4 +307,4 @@ This project includes GitHub Actions workflows in `.github/workflows/`.
 
 ## License
 
-MIT (add your preferred license if different).
+This project is licensed under the MIT License. See `LICENSE` for details.
